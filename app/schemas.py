@@ -2,34 +2,6 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
 
-# --- SCHEMAS PARA KPI ---
-class KPIBase(BaseModel):
-    nombre: str
-    descripcion: Optional[str] = None
-    valor: float
-
-class KPICreate(KPIBase):
-    pass
-
-class KPIResponse(KPIBase):
-    id_kpi: int
-    fecha_calculo: datetime
-    class Config:
-        from_attributes = True
-
-# --- SCHEMAS PARA REPORTE ---
-class ReporteBase(BaseModel):
-    resumen: str
-    estado_general: str
-
-class ReporteCreate(ReporteBase):
-    pass
-
-class ReporteResponse(ReporteBase):
-    id_reporte: int
-    fecha_generacion: datetime
-    class Config:
-        from_attributes = True
 
 # --- SCHEMAS PARA METRICA PROYECTO ---
 class MetricaBase(BaseModel):
