@@ -1,4 +1,3 @@
-#PRUEBA DE QUE NO COMETI ERROR
 from sqlalchemy.orm import Session
 from . import models, schemas
 
