@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 from . import models, schemas
 
+#borrar esta linea 
+
 # --- CRUD KPI ---
 def get_kpis(db: Session):
     return db.query(models.KPI).all()
