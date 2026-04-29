@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session
 from . import models, schemas
 
-
 # --- CRUD KPI ---
 def get_kpis(db: Session):
     return db.query(models.KPI).all()
@@ -31,6 +30,33 @@ def delete_kpi(db: Session, kpi_id: int):
         db.delete(db_kpi)
         db.commit()
     return db_kpi
+
+# --- CRUD REPORTES ---
+def get_reportes(db: Session):
+    return db.query(models.Reporte).all()
+
+def create_reporte(db: Session, reporte: schemas.ReporteCreate):
+    db_reporte = models.Reporte(**reporte.dict())
+    db.add(db_reporte)
+    db.commit()
+    db.refresh(db_reporte)
+    return db_reporte
+
+def update_reporte(db: Session, reporte_id: int, reporte_data: schemas.ReporteCreate):
+    db_reporte = db.query(models.Reporte).filter(models.Reporte.id_reporte == reporte_id).first()
+    if db_reporte:
+        for key, value in reporte_data.dict().items():
+            setattr(db_reporte, key, value)
+        db.commit()
+        db.refresh(db_reporte)
+    return db_reporte
+
+def delete_reporte(db: Session, reporte_id: int):
+    db_reporte = db.query(models.Reporte).filter(models.Reporte.id_reporte == reporte_id).first()
+    if db_reporte:
+        db.delete(db_reporte)
+        db.commit()
+    return db_reporte
 
 # --- CRUD MÉTRICAS PROYECTOS ---
 def get_metricas(db: Session):

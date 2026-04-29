@@ -17,6 +17,19 @@ class KPIResponse(KPIBase):
     class Config:
         from_attributes = True
 
+# --- SCHEMAS PARA REPORTE ---
+class ReporteBase(BaseModel):
+    resumen: str
+    estado_general: str
+
+class ReporteCreate(ReporteBase):
+    pass
+
+class ReporteResponse(ReporteBase):
+    id_reporte: int
+    fecha_generacion: datetime
+    class Config:
+        from_attributes = True
 
 # --- SCHEMAS PARA METRICA PROYECTO ---
 class MetricaBase(BaseModel):

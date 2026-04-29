@@ -11,6 +11,13 @@ class KPI(Base):
     # Usamos timezone.utc para evitar problemas de horario
     fecha_calculo = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+class Reporte(Base):
+    __tablename__ = "reportes"
+    id_reporte = Column(Integer, primary_key=True, index=True)
+    fecha_generacion = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    resumen = Column(String)
+    estado_general = Column(String)
+
 class MetricaProyecto(Base):
     __tablename__ = "metricas_proyecto"
     id_metrica = Column(Integer, primary_key=True, index=True)
