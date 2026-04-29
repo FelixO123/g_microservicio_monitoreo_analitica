@@ -147,3 +147,17 @@ def eliminar_reporte(id_reportes: int, db: Session = Depends(database.get_db)):
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
     return {"message": f"Reporte {id_reportes} eliminado correctamente"}
 
+# --- FUNCION DE CRUD UTILIZACION DE PERSONAL ---
+
+@app.get("/api/analisis/ocupacion")
+async def mostrar_ocupacion_personal():
+    return await services.obtener_carga_trabajo()
+
+@app.get("/api/analisis/ocupacion/{id_usuario}")
+async def ocupacion_usuario_especifico(id_usuario: int):
+    cargas = await services.obtener_carga_trabajo()
+    usuario = next((c for c in cargas if c["id_usuario"] == id_usuario), None)
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Carga de usuario no encontrada")
+    return usuario
+
