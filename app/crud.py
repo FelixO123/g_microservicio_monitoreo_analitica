@@ -35,6 +35,9 @@ def delete_kpi(db: Session, kpi_id: int):
 def get_reportes(db: Session):
     return db.query(models.Reporte).all()
 
+def get_reporte(db: Session, reporte_id: int):
+    return db.query(models.Reporte).filter(models.Reporte.id_reporte == reporte_id).first()
+
 def create_reporte(db: Session, reporte: schemas.ReporteCreate):
     db_reporte = models.Reporte(**reporte.dict())
     db.add(db_reporte)

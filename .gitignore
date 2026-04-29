@@ -3,5 +3,10 @@ venv/
 .env
 __pycache__/
 *.pyc
+*.py[cod]
 
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
 

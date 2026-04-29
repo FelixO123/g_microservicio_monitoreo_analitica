@@ -135,6 +135,13 @@ def dashboard_consolidado(db: Session = Depends(database.get_db)):
 def listar_reportes(db: Session = Depends(database.get_db)):
     return crud.get_reportes(db)
 
+@app.get("/api/analisis/reportes/{reporte_id}", response_model=schemas.ReporteResponse)
+def read_reporte(reporte_id: int, db: Session = Depends(database.get_db)):
+    db_reporte = crud.get_reporte(db, reporte_id=reporte_id)
+    if db_reporte is None:
+        raise HTTPException(status_code=404, detail="Reporte no encontrado")
+    return db_reporte
+
 @app.post("/api/analisis/reportes", response_model=schemas.ReporteResponse)
 def generar_nuevo_reporte(reporte: schemas.ReporteCreate, db: Session = Depends(database.get_db)):
     return crud.create_reporte(db, reporte)
