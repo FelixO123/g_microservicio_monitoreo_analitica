@@ -2,7 +2,7 @@
 
 Este microservicio se encarga de almacenar indicadores clave de desempeño, métricas de avance, utilización de recursos y estado general de la organización dentro del ecosistema del proyecto, estos datos se usaran en el frontend para visualizarlos a traves de un panel interactivo (Dashboard).
 
-## 🛠️ Tecnologías utilizadas
+## Tecnologías utilizadas
 * **Lenguaje:** Python 3.12.2
 * **Framework:** FastAPI
 * **Base de Datos:** PostgreSql (NeonDb)
@@ -21,13 +21,13 @@ Este microservicio se encarga de almacenar indicadores clave de desempeño, mét
 
 - Pytest: El framework que usaste para las pruebas (testing).
 
-## 📋 Estructura del Proyecto
+## Estructura del Proyecto
 * `app/`: Contiene el código fuente del microservicio.
 * `.env`: Archivo de configuración para variables de entorno (no incluido en Git).
 * `venv/`: Carpeta del entorno virtual donde se instalan las librerías necesarias para el microservicio. (Excluido de Git).
 * `requirements.txt`: Lista de librerías necesarias.
 
-## 🚀 Instalación y Configuración Local
+## Instalación y Configuración Local
 
 Sigue estos pasos para levantar el servicio:
 
