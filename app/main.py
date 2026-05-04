@@ -1,28 +1,25 @@
-from fastapi import FastAPI
-
-app = FastAPI()
-
-#PROGRAMA DEFECTO PARA PRUEBA DEL SERVIDOR
-"""
-@app.get("/")
-def read_root():
-    return {"status": "OK", "message": "Servidor de FastAPI funcionando correctamente"}
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str = None):
-    return {"item_id": item_id, "query": q}
-"""
-
-#PROGRAMAR DE AQUI PARA ABAJO EL MICROSERVICIO
-
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
 from . import models, schemas, crud, services, database
 
+# 1. Crear las tablas en la base de datos
 models.Base.metadata.create_all(bind=database.engine)
 
+# 2. Instanciar FastAPI (UNA SOLA VEZ)
 app = FastAPI(title="Microservicio de Monitoreo y Analítica")
+
+# 3. Configurar CORS inmediatamente después de instanciar app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- PROGRAMAR DE AQUÍ PARA ABAJO EL MICROSERVICIO ---
 
 # --- FUNCIONALIDAD CRUD PARA ENTIDAD KPI ---
 
@@ -54,13 +51,10 @@ def eliminar_kpi(id: int, db: Session = Depends(database.get_db)):
 
 @app.post("/api/analisis/reportes/periodico")
 async def recolectar_datos_periodicos(db: Session = Depends(database.get_db)):
-    # 1. Obtenemos datos de los otros microservicios
     proyectos = await services.obtener_datos_proyectos()
-    
     total_proyectos = len(proyectos)
     proyectos_criticos = 0
     
-    # 2. Procesamos cada proyecto y creamos su métrica
     for p in proyectos:
         completadas = p.get("tareas_completadas", 0)
         totales = p.get("tareas_totales", 1)
@@ -75,23 +69,14 @@ async def recolectar_datos_periodicos(db: Session = Depends(database.get_db)):
             tareas_completadas=completadas,
             tareas_totales=totales
         )
-        # Guardamos la métrica individual
         crud.create_metrica(db, metrica_data)
     
-    # 3. AQUÍ ESTÁ LO QUE FALTA: Crear el registro en la entidad Reportes
     resumen_texto = (
         f"Sincronización exitosa. Se procesaron {total_proyectos} proyectos. "
         f"Se detectaron {proyectos_criticos} proyectos con avance crítico."
     )
-    
     estado = "Atención Requerida" if proyectos_criticos > 0 else "Estable"
-    
-    nuevo_reporte = schemas.ReporteCreate(
-        resumen=resumen_texto,
-        estado_general=estado
-    )
-    
-    # Guardamos el reporte en la base de datos
+    nuevo_reporte = schemas.ReporteCreate(resumen=resumen_texto, estado_general=estado)
     crud.create_reporte(db, nuevo_reporte)
     
     return {
@@ -103,7 +88,6 @@ async def recolectar_datos_periodicos(db: Session = Depends(database.get_db)):
 @app.get("/api/analisis/alertas")
 async def detectar_alertas(db: Session = Depends(database.get_db)):
     metricas = crud.get_metricas(db)
-    # Lógica: detecta proyectos con menos del 40% de avance
     alertas = [m for m in metricas if m.porcentaje_avance < 40.0]
     return {"alertas_criticas": alertas}
 
@@ -166,11 +150,6 @@ def listar_todas_metricas(db: Session = Depends(database.get_db)):
 @app.get("/api/analisis/metrica/{id_metrica}", response_model=schemas.MetricaResponse)
 def obtener_metrica_especifica(id_metrica: int, db: Session = Depends(database.get_db)):
     return crud.get_metrica(db, id_metrica)
-"""
-@app.get("/api/analisis/metricas/proyectos/{id_proyecto}", response_model=schemas.MetricaResponse)
-def metrica_por_proyecto(id_proyecto: int, db: Session = Depends(database.get_db)):
-    return crud.get_metrica_por_proyecto(db, id_proyecto)
-"""
 
 @app.get("/api/analisis/metricas/proyectos/{id_proyecto}", response_model=List[schemas.MetricaResponse])
 def metrica_por_proyecto(id_proyecto: int, db: Session = Depends(database.get_db)):
@@ -179,7 +158,6 @@ def metrica_por_proyecto(id_proyecto: int, db: Session = Depends(database.get_db
         raise HTTPException(status_code=404, detail="No se encontraron métricas para este proyecto")
     return metricas
 
-    
 @app.post("/api/analisis/metrica", response_model=schemas.MetricaResponse)
 def crear_metrica_proyecto(metrica: schemas.MetricaCreate, db: Session = Depends(database.get_db)):
     return crud.create_metrica(db, metrica)
