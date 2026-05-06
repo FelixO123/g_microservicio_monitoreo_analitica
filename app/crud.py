@@ -67,10 +67,7 @@ def get_metricas(db: Session):
 
 def get_metrica(db: Session, metrica_id: int):
     return db.query(models.MetricaProyecto).filter(models.MetricaProyecto.id_metrica == metrica_id).first()
-""""
-def get_metrica_por_proyecto(db: Session, id_proyecto: int):
-    return db.query(models.MetricaProyecto).filter(models.MetricaProyecto.id_proyecto == id_proyecto).first()
-"""
+
 
 def get_metrica_por_proyecto(db: Session, id_proyecto: int):
     return db.query(models.MetricaProyecto).filter(models.MetricaProyecto.id_proyecto == id_proyecto).all()
