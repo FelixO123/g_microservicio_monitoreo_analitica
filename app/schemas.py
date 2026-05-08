@@ -43,10 +43,13 @@ class MetricaCreate(MetricaBase):
 
 class MetricaResponse(MetricaBase):
     id_metrica: int
+    # Añadimos fecha_calculo si tu modelo lo tiene, para que el front no de error
+    fecha_calculo: Optional[datetime] = None 
     class Config:
         from_attributes = True
 
 # --- SCHEMA PARA DASHBOARD ---
+# Este es el punto clave: Coincide con main.py y DashboardAnalitica.jsx
 class DashboardData(BaseModel):
     kpis: List[KPIResponse]
     metricas: List[MetricaResponse]

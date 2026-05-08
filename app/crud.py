@@ -9,7 +9,7 @@ def get_kpi(db: Session, kpi_id: int):
     return db.query(models.KPI).filter(models.KPI.id_kpi == kpi_id).first()
 
 def create_kpi(db: Session, kpi: schemas.KPICreate):
-    db_kpi = models.KPI(**kpi.dict())
+    db_kpi = models.KPI(**kpi.model_dump())
     db.add(db_kpi)
     db.commit()
     db.refresh(db_kpi)
@@ -18,7 +18,7 @@ def create_kpi(db: Session, kpi: schemas.KPICreate):
 def update_kpi(db: Session, kpi_id: int, kpi_data: schemas.KPICreate):
     db_kpi = get_kpi(db, kpi_id)
     if db_kpi:
-        for key, value in kpi_data.dict().items():
+        for key, value in kpi_data.model_dump().items():
             setattr(db_kpi, key, value)
         db.commit()
         db.refresh(db_kpi)
@@ -33,13 +33,14 @@ def delete_kpi(db: Session, kpi_id: int):
 
 # --- CRUD REPORTES ---
 def get_reportes(db: Session):
-    return db.query(models.Reporte).all()
+    # INTEGRACIÓN: Ordenamos por fecha descendente para que el front muestre lo más nuevo
+    return db.query(models.Reporte).order_by(models.Reporte.fecha_generacion.desc()).all()
 
 def get_reporte(db: Session, reporte_id: int):
     return db.query(models.Reporte).filter(models.Reporte.id_reporte == reporte_id).first()
 
 def create_reporte(db: Session, reporte: schemas.ReporteCreate):
-    db_reporte = models.Reporte(**reporte.dict())
+    db_reporte = models.Reporte(**reporte.model_dump())
     db.add(db_reporte)
     db.commit()
     db.refresh(db_reporte)
@@ -48,7 +49,7 @@ def create_reporte(db: Session, reporte: schemas.ReporteCreate):
 def update_reporte(db: Session, reporte_id: int, reporte_data: schemas.ReporteCreate):
     db_reporte = db.query(models.Reporte).filter(models.Reporte.id_reporte == reporte_id).first()
     if db_reporte:
-        for key, value in reporte_data.dict().items():
+        for key, value in reporte_data.model_dump().items():
             setattr(db_reporte, key, value)
         db.commit()
         db.refresh(db_reporte)
@@ -63,17 +64,17 @@ def delete_reporte(db: Session, reporte_id: int):
 
 # --- CRUD MÉTRICAS PROYECTOS ---
 def get_metricas(db: Session):
+    # Ordenamos por las más recientes también
     return db.query(models.MetricaProyecto).all()
 
 def get_metrica(db: Session, metrica_id: int):
     return db.query(models.MetricaProyecto).filter(models.MetricaProyecto.id_metrica == metrica_id).first()
 
-
 def get_metrica_por_proyecto(db: Session, id_proyecto: int):
     return db.query(models.MetricaProyecto).filter(models.MetricaProyecto.id_proyecto == id_proyecto).all()
     
 def create_metrica(db: Session, metrica: schemas.MetricaCreate):
-    db_metrica = models.MetricaProyecto(**metrica.dict())
+    db_metrica = models.MetricaProyecto(**metrica.model_dump())
     db.add(db_metrica)
     db.commit()
     db.refresh(db_metrica)
@@ -82,7 +83,7 @@ def create_metrica(db: Session, metrica: schemas.MetricaCreate):
 def update_metrica(db: Session, metrica_id: int, metrica_data: schemas.MetricaCreate):
     db_metrica = get_metrica(db, metrica_id)
     if db_metrica:
-        for key, value in metrica_data.dict().items():
+        for key, value in metrica_data.model_dump().items():
             setattr(db_metrica, key, value)
         db.commit()
         db.refresh(db_metrica)
