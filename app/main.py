@@ -1,25 +1,16 @@
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
-from . import models, schemas, crud, services, database
+from . import models, schemas, crud, database
 
-# 1. Crear las tablas en la base de datos
+# 1. Crear las tablas en la base de datos al arrancar
 models.Base.metadata.create_all(bind=database.engine)
 
-# 2. Instanciar FastAPI (UNA SOLA VEZ)
+# 2. Instanciar FastAPI
 app = FastAPI(title="Microservicio de Monitoreo y Analítica")
 
-# 3. Configurar CORS inmediatamente después de instanciar app
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# --- PROGRAMAR DE AQUÍ PARA ABAJO EL MICROSERVICIO ---
+# --- BLOQUE DE CORS ELIMINADO ---
+# El API Gateway (Puerto 8081) ahora gestiona el CORS para evitar duplicidad de headers.
 
 # --- FUNCIONALIDAD CRUD PARA ENTIDAD KPI ---
 
@@ -47,41 +38,45 @@ def eliminar_kpi(id: int, db: Session = Depends(database.get_db)):
     crud.delete_kpi(db, id)
     return {"message": "KPI eliminado correctamente"}
 
-# --- FUNCIONALIDADES DE REPORTES Y ALERTAS ---
+# --- FUNCIONALIDADES DE REPORTES (SINCRONIZACIÓN DESDE FRONTEND) ---
 
 @app.post("/api/analisis/reportes/periodico")
-async def recolectar_datos_periodicos(db: Session = Depends(database.get_db)):
-    proyectos = await services.obtener_datos_proyectos()
-    total_proyectos = len(proyectos)
+async def recolectar_datos_desde_frontend(
+    datos_proyectos: List[dict], 
+    db: Session = Depends(database.get_db)
+):
+    total_proyectos = len(datos_proyectos)
     proyectos_criticos = 0
     
-    for p in proyectos:
+    for p in datos_proyectos:
+        id_p = p.get("id_proyecto")
         completadas = p.get("tareas_completadas", 0)
         totales = p.get("tareas_totales", 1)
+        
+        # Cálculo del avance
         avance = (completadas / totales) * 100
         
         if avance < 40:
             proyectos_criticos += 1
             
+        # Guardamos la métrica en la DB
         metrica_data = schemas.MetricaCreate(
-            id_proyecto=p["id_proyecto"],
+            id_proyecto=id_p,
             porcentaje_avance=avance,
             tareas_completadas=completadas,
             tareas_totales=totales
         )
         crud.create_metrica(db, metrica_data)
     
-    resumen_texto = (
-        f"Sincronización exitosa. Se procesaron {total_proyectos} proyectos. "
-        f"Se detectaron {proyectos_criticos} proyectos con avance crítico."
-    )
+    # Generar el reporte de la sincronización
+    resumen_texto = f"Sincronización manual desde Front. {total_proyectos} proyectos procesados. {proyectos_criticos} críticos."
     estado = "Atención Requerida" if proyectos_criticos > 0 else "Estable"
     nuevo_reporte = schemas.ReporteCreate(resumen=resumen_texto, estado_general=estado)
     crud.create_reporte(db, nuevo_reporte)
     
     return {
         "status": "success", 
-        "message": "Métricas actualizadas y reporte generado",
+        "message": "Analítica generada con datos del frontend",
         "reporte_resumen": resumen_texto
     }
 
@@ -91,21 +86,7 @@ async def detectar_alertas(db: Session = Depends(database.get_db)):
     alertas = [m for m in metricas if m.porcentaje_avance < 40.0]
     return {"alertas_criticas": alertas}
 
-# --- FUNCION DE CRUD UTILIZACION DE PERSONAL ---
-
-@app.get("/api/analisis/ocupacion")
-async def mostrar_ocupacion_personal():
-    return await services.obtener_carga_trabajo()
-
-@app.get("/api/analisis/ocupacion/{id_usuario}")
-async def ocupacion_usuario_especifico(id_usuario: int):
-    cargas = await services.obtener_carga_trabajo()
-    usuario = next((c for c in cargas if c["id_usuario"] == id_usuario), None)
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Carga de usuario no encontrada")
-    return usuario
-
-# --- FUNCION DE DASHBOARD Y REPORTES ---
+# --- FUNCIÓN DE DASHBOARD Y REPORTES ---
 
 @app.get("/api/analisis/dashboard", response_model=schemas.DashboardData)
 def dashboard_consolidado(db: Session = Depends(database.get_db)):
@@ -119,28 +100,6 @@ def dashboard_consolidado(db: Session = Depends(database.get_db)):
 def listar_reportes(db: Session = Depends(database.get_db)):
     return crud.get_reportes(db)
 
-@app.get("/api/analisis/reportes/{reporte_id}", response_model=schemas.ReporteResponse)
-def read_reporte(reporte_id: int, db: Session = Depends(database.get_db)):
-    db_reporte = crud.get_reporte(db, reporte_id=reporte_id)
-    if db_reporte is None:
-        raise HTTPException(status_code=404, detail="Reporte no encontrado")
-    return db_reporte
-
-@app.post("/api/analisis/reportes", response_model=schemas.ReporteResponse)
-def generar_nuevo_reporte(reporte: schemas.ReporteCreate, db: Session = Depends(database.get_db)):
-    return crud.create_reporte(db, reporte)
-
-@app.put("/api/analisis/reportes/{id_reportes}", response_model=schemas.ReporteResponse)
-def actualizar_reporte(id_reportes: int, reporte: schemas.ReporteCreate, db: Session = Depends(database.get_db)):
-    return crud.update_reporte(db, id_reportes, reporte)
-
-@app.delete("/api/analisis/reportes/{id_reportes}")
-def eliminar_reporte(id_reportes: int, db: Session = Depends(database.get_db)):
-    db_reporte = crud.delete_reporte(db, id_reportes)
-    if not db_reporte:
-        raise HTTPException(status_code=404, detail="Reporte no encontrado")
-    return {"message": f"Reporte {id_reportes} eliminado correctamente"}
-
 # --- CRUD MÉTRICAS DE PROYECTOS ---
 
 @app.get("/api/analisis/metricas", response_model=List[schemas.MetricaResponse])
@@ -150,21 +109,6 @@ def listar_todas_metricas(db: Session = Depends(database.get_db)):
 @app.get("/api/analisis/metrica/{id_metrica}", response_model=schemas.MetricaResponse)
 def obtener_metrica_especifica(id_metrica: int, db: Session = Depends(database.get_db)):
     return crud.get_metrica(db, id_metrica)
-
-@app.get("/api/analisis/metricas/proyectos/{id_proyecto}", response_model=List[schemas.MetricaResponse])
-def metrica_por_proyecto(id_proyecto: int, db: Session = Depends(database.get_db)):
-    metricas = crud.get_metrica_por_proyecto(db, id_proyecto)
-    if not metricas:
-        raise HTTPException(status_code=404, detail="No se encontraron métricas para este proyecto")
-    return metricas
-
-@app.post("/api/analisis/metrica", response_model=schemas.MetricaResponse)
-def crear_metrica_proyecto(metrica: schemas.MetricaCreate, db: Session = Depends(database.get_db)):
-    return crud.create_metrica(db, metrica)
-
-@app.put("/api/analisis/metrica/{id_metrica}", response_model=schemas.MetricaResponse)
-def actualizar_metrica_proyecto(id_metrica: int, metrica: schemas.MetricaCreate, db: Session = Depends(database.get_db)):
-    return crud.update_metrica(db, id_metrica, metrica)
 
 @app.delete("/api/analisis/metrica/{id_metrica}")
 def eliminar_metrica(id_metrica: int, db: Session = Depends(database.get_db)):
