@@ -33,7 +33,7 @@ def delete_kpi(db: Session, kpi_id: int):
 
 # --- CRUD REPORTES ---
 def get_reportes(db: Session):
-    # INTEGRACIÓN: Ordenamos por fecha descendente para que el front muestre lo más nuevo
+    # Ordenamos por fecha descendente para que el front muestre lo más nuevo
     return db.query(models.Reporte).order_by(models.Reporte.fecha_generacion.desc()).all()
 
 def get_reporte(db: Session, reporte_id: int):
@@ -62,9 +62,9 @@ def delete_reporte(db: Session, reporte_id: int):
         db.commit()
     return db_reporte
 
-# --- CRUD MÉTRICAS PROYECTOS ---
+# --- CRUD MÉTRICAS PROYECTOS (Lógica de Upsert Integrada) ---
+
 def get_metricas(db: Session):
-    # Ordenamos por las más recientes también
     return db.query(models.MetricaProyecto).all()
 
 def get_metrica(db: Session, metrica_id: int):
@@ -72,10 +72,26 @@ def get_metrica(db: Session, metrica_id: int):
 
 def get_metrica_por_proyecto(db: Session, id_proyecto: int):
     return db.query(models.MetricaProyecto).filter(models.MetricaProyecto.id_proyecto == id_proyecto).all()
+
+def create_or_update_metrica(db: Session, metrica: schemas.MetricaCreate):
+    """
+    Busca si ya existe la métrica para ese proyecto. 
+    Si existe, la actualiza; si no, la crea.
+    """
+    db_metrica = db.query(models.MetricaProyecto).filter(
+        models.MetricaProyecto.id_proyecto == metrica.id_proyecto
+    ).first()
+
+    if db_metrica:
+        # Si existe, actualizamos los valores actuales
+        db_metrica.porcentaje_avance = metrica.porcentaje_avance
+        db_metrica.tareas_completadas = metrica.tareas_completadas
+        db_metrica.tareas_totales = metrica.tareas_totales
+    else:
+        # Si no existe, lo creamos por primera vez
+        db_metrica = models.MetricaProyecto(**metrica.model_dump())
+        db.add(db_metrica)
     
-def create_metrica(db: Session, metrica: schemas.MetricaCreate):
-    db_metrica = models.MetricaProyecto(**metrica.model_dump())
-    db.add(db_metrica)
     db.commit()
     db.refresh(db_metrica)
     return db_metrica

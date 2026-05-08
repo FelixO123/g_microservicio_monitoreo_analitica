@@ -3,14 +3,14 @@ from sqlalchemy.orm import Session
 from typing import List
 from . import models, schemas, crud, database
 
-# 1. Crear las tablas en la base de datos al arrancar
+# 1. Crear las tablas en la base de datos al arrancar (Neon)
 models.Base.metadata.create_all(bind=database.engine)
 
 # 2. Instanciar FastAPI
 app = FastAPI(title="Microservicio de Monitoreo y Analítica")
 
-# --- BLOQUE DE CORS ELIMINADO ---
-# El API Gateway (Puerto 8081) ahora gestiona el CORS para evitar duplicidad de headers.
+# Nota: El CORS se gestiona exclusivamente en el API Gateway (puerto 8081)
+# para evitar el error de cabeceras duplicadas.
 
 # --- FUNCIONALIDAD CRUD PARA ENTIDAD KPI ---
 
@@ -45,6 +45,10 @@ async def recolectar_datos_desde_frontend(
     datos_proyectos: List[dict], 
     db: Session = Depends(database.get_db)
 ):
+    """
+    Recibe los datos reales del Microservicio de Proyectos a través de React.
+    Actualiza el estado actual de cada proyecto (Upsert) y genera un reporte histórico.
+    """
     total_proyectos = len(datos_proyectos)
     proyectos_criticos = 0
     
@@ -53,30 +57,31 @@ async def recolectar_datos_desde_frontend(
         completadas = p.get("tareas_completadas", 0)
         totales = p.get("tareas_totales", 1)
         
-        # Cálculo del avance
+        # Cálculo del avance real
         avance = (completadas / totales) * 100
         
         if avance < 40:
             proyectos_criticos += 1
             
-        # Guardamos la métrica en la DB
+        # INTEGRACIÓN PROFESIONAL: Guardar o Actualizar (Upsert)
         metrica_data = schemas.MetricaCreate(
             id_proyecto=id_p,
             porcentaje_avance=avance,
             tareas_completadas=completadas,
             tareas_totales=totales
         )
-        crud.create_metrica(db, metrica_data)
+        crud.create_or_update_metrica(db, metrica_data)
     
-    # Generar el reporte de la sincronización
-    resumen_texto = f"Sincronización manual desde Front. {total_proyectos} proyectos procesados. {proyectos_criticos} críticos."
+    # Generar el reporte histórico de esta sincronización
+    resumen_texto = f"Sincronización manual. {total_proyectos} proyectos procesados. {proyectos_criticos} críticos."
     estado = "Atención Requerida" if proyectos_criticos > 0 else "Estable"
+    
     nuevo_reporte = schemas.ReporteCreate(resumen=resumen_texto, estado_general=estado)
     crud.create_reporte(db, nuevo_reporte)
     
     return {
         "status": "success", 
-        "message": "Analítica generada con datos del frontend",
+        "message": "Métricas actualizadas y reporte generado",
         "reporte_resumen": resumen_texto
     }
 
