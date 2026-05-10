@@ -57,8 +57,7 @@ Para que el microservicio funcione, crea un archivo `.env` en la raíz del proye
 
 - `DATABASE_URL`: URL de conexión a PostgreSQL (Proyecto NeonDb)
 - `PORT`: Puerto en el que correrá el servidor (ej. `8000`)
-- `MS_PROYECTOS_URL`: URL del microservicio desplegado
-- `MS_USUARIOS_URL`= URL del microservicio desplegado
+
 
 5. **Ejecutar el servidor**
 
