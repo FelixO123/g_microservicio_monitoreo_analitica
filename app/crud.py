@@ -9,11 +9,23 @@ def get_kpi(db: Session, kpi_id: int):
     return db.query(models.KPI).filter(models.KPI.id_kpi == kpi_id).first()
 
 def create_kpi(db: Session, kpi: schemas.KPICreate):
-    db_kpi = models.KPI(**kpi.model_dump())
-    db.add(db_kpi)
-    db.commit()
-    db.refresh(db_kpi)
-    return db_kpi
+    # INTEGRACIÓN UPSERT: Buscamos si ya existe un KPI con ese nombre
+    db_kpi = db.query(models.KPI).filter(models.KPI.nombre == kpi.nombre).first()
+    
+    if db_kpi:
+        # Si existe, actualizamos sus valores actuales
+        db_kpi.valor = kpi.valor
+        db_kpi.descripcion = kpi.descripcion
+        db.commit()
+        db.refresh(db_kpi)
+        return db_kpi
+    else:
+        # Si no existe, lo creamos desde cero
+        nuevo_kpi = models.KPI(**kpi.model_dump())
+        db.add(nuevo_kpi)
+        db.commit()
+        db.refresh(nuevo_kpi)
+        return nuevo_kpi
 
 def update_kpi(db: Session, kpi_id: int, kpi_data: schemas.KPICreate):
     db_kpi = get_kpi(db, kpi_id)
@@ -64,7 +76,6 @@ def delete_reporte(db: Session, reporte_id: int):
 
 # --- CRUD MÉTRICAS PROYECTOS ---
 def get_metricas(db: Session):
-    # Ordenamos por las más recientes también
     return db.query(models.MetricaProyecto).all()
 
 def get_metrica(db: Session, metrica_id: int):
@@ -72,13 +83,29 @@ def get_metrica(db: Session, metrica_id: int):
 
 def get_metrica_por_proyecto(db: Session, id_proyecto: int):
     return db.query(models.MetricaProyecto).filter(models.MetricaProyecto.id_proyecto == id_proyecto).all()
-    
+
 def create_metrica(db: Session, metrica: schemas.MetricaCreate):
     db_metrica = models.MetricaProyecto(**metrica.model_dump())
     db.add(db_metrica)
     db.commit()
     db.refresh(db_metrica)
     return db_metrica
+
+# --- LÓGICA DE SINCRONIZACIÓN (UPSERT PARA MÉTRICAS) ---
+def update_or_create_metrica(db: Session, metrica: schemas.MetricaCreate):
+    db_metrica = db.query(models.MetricaProyecto).filter(
+        models.MetricaProyecto.id_proyecto == metrica.id_proyecto
+    ).first()
+
+    if db_metrica:
+        db_metrica.porcentaje_avance = metrica.porcentaje_avance
+        db_metrica.tareas_completadas = metrica.tareas_completadas
+        db_metrica.tareas_totales = metrica.tareas_totales
+        db.commit()
+        db.refresh(db_metrica)
+        return db_metrica
+    
+    return create_metrica(db, metrica)
 
 def update_metrica(db: Session, metrica_id: int, metrica_data: schemas.MetricaCreate):
     db_metrica = get_metrica(db, metrica_id)
