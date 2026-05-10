@@ -71,14 +71,34 @@ def get_metrica(db: Session, metrica_id: int):
     return db.query(models.MetricaProyecto).filter(models.MetricaProyecto.id_metrica == metrica_id).first()
 
 def get_metrica_por_proyecto(db: Session, id_proyecto: int):
+    # Nota: .first() suele ser mejor si solo esperamos una métrica por proyecto
     return db.query(models.MetricaProyecto).filter(models.MetricaProyecto.id_proyecto == id_proyecto).all()
-    
+
 def create_metrica(db: Session, metrica: schemas.MetricaCreate):
     db_metrica = models.MetricaProyecto(**metrica.model_dump())
     db.add(db_metrica)
     db.commit()
     db.refresh(db_metrica)
     return db_metrica
+
+# --- LÓGICA DE SINCRONIZACIÓN (UPSERT) ---
+def update_or_create_metrica(db: Session, metrica: schemas.MetricaCreate):
+    # 1. Buscamos si ya existe una métrica para ese ID de proyecto específico
+    db_metrica = db.query(models.MetricaProyecto).filter(
+        models.MetricaProyecto.id_proyecto == metrica.id_proyecto
+    ).first()
+
+    if db_metrica:
+        # 2. Si existe, actualizamos sus valores actuales
+        db_metrica.porcentaje_avance = metrica.porcentaje_avance
+        db_metrica.tareas_completadas = metrica.tareas_completadas
+        db_metrica.tareas_totales = metrica.tareas_totales
+        db.commit()
+        db.refresh(db_metrica)
+        return db_metrica
+    
+    # 3. Si no existe, usamos la función de creación estándar
+    return create_metrica(db, metrica)
 
 def update_metrica(db: Session, metrica_id: int, metrica_data: schemas.MetricaCreate):
     db_metrica = get_metrica(db, metrica_id)

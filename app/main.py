@@ -59,16 +59,18 @@ async def recolectar_datos_desde_frontend(
         if avance < 40:
             proyectos_criticos += 1
             
-        # Guardamos la métrica en la DB
+        # Preparamos el schema para la métrica
         metrica_data = schemas.MetricaCreate(
             id_proyecto=id_p,
             porcentaje_avance=avance,
             tareas_completadas=completadas,
             tareas_totales=totales
         )
-        crud.create_metrica(db, metrica_data)
+        
+        # INTEGRACIÓN: Usamos la lógica de "Actualizar o Crear" para evitar duplicados
+        crud.update_or_create_metrica(db, metrica_data)
     
-    # Generar el reporte de la sincronización
+    # Generar el reporte de la sincronización (el historial de reportes sí se mantiene acumulativo)
     resumen_texto = f"Sincronización manual desde Front. {total_proyectos} proyectos procesados. {proyectos_criticos} críticos."
     estado = "Atención Requerida" if proyectos_criticos > 0 else "Estable"
     nuevo_reporte = schemas.ReporteCreate(resumen=resumen_texto, estado_general=estado)
@@ -76,7 +78,7 @@ async def recolectar_datos_desde_frontend(
     
     return {
         "status": "success", 
-        "message": "Analítica generada con datos del frontend",
+        "message": "Analítica actualizada con datos del frontend",
         "reporte_resumen": resumen_texto
     }
 
