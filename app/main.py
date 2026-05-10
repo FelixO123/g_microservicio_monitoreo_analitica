@@ -9,9 +9,6 @@ models.Base.metadata.create_all(bind=database.engine)
 # 2. Instanciar FastAPI
 app = FastAPI(title="Microservicio de Monitoreo y Analítica")
 
-# --- BLOQUE DE CORS ELIMINADO ---
-# El API Gateway (Puerto 8081) ahora gestiona el CORS para evitar duplicidad de headers.
-
 # --- FUNCIONALIDAD CRUD PARA ENTIDAD KPI ---
 
 @app.get("/api/analisis/kpi", response_model=List[schemas.KPIResponse])
@@ -47,6 +44,7 @@ async def recolectar_datos_desde_frontend(
 ):
     total_proyectos = len(datos_proyectos)
     proyectos_criticos = 0
+    suma_avances = 0.0
     
     for p in datos_proyectos:
         id_p = p.get("id_proyecto")
@@ -55,6 +53,7 @@ async def recolectar_datos_desde_frontend(
         
         # Cálculo del avance
         avance = (completadas / totales) * 100
+        suma_avances += avance
         
         if avance < 40:
             proyectos_criticos += 1
@@ -67,18 +66,30 @@ async def recolectar_datos_desde_frontend(
             tareas_totales=totales
         )
         
-        # INTEGRACIÓN: Usamos la lógica de "Actualizar o Crear" para evitar duplicados
+        # INTEGRACIÓN: Usamos la lógica de "Actualizar o Crear" para evitar duplicados en gráficas
         crud.update_or_create_metrica(db, metrica_data)
     
-    # Generar el reporte de la sincronización (el historial de reportes sí se mantiene acumulativo)
-    resumen_texto = f"Sincronización manual desde Front. {total_proyectos} proyectos procesados. {proyectos_criticos} críticos."
+    # --- NUEVA LÓGICA PARA KPIs AUTOMÁTICOS ---
+    if total_proyectos > 0:
+        promedio_general = suma_avances / total_proyectos
+        
+        nuevo_kpi = schemas.KPICreate(
+            nombre="Eficiencia General",
+            valor=round(promedio_general, 2),
+            descripcion="Promedio de avance de todos los proyectos activos."
+        )
+        # Esto actualizará o creará el KPI en la tabla kpis
+        crud.create_kpi(db, nuevo_kpi) 
+
+    # Generar el reporte de la sincronización (Historial acumulativo)
+    resumen_texto = f"Sincronización manual. {total_proyectos} proyectos. {proyectos_criticos} críticos."
     estado = "Atención Requerida" if proyectos_criticos > 0 else "Estable"
     nuevo_reporte = schemas.ReporteCreate(resumen=resumen_texto, estado_general=estado)
     crud.create_reporte(db, nuevo_reporte)
     
     return {
         "status": "success", 
-        "message": "Analítica actualizada con datos del frontend",
+        "message": "Analítica y KPIs actualizados",
         "reporte_resumen": resumen_texto
     }
 
