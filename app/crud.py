@@ -1,7 +1,10 @@
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 from . import models, schemas
 
-# --- CRUD KPI ---
+# ==========================================
+# --- CRUD KPI -----------------------------
+# ==========================================
 def get_kpis(db: Session):
     return db.query(models.KPI).all()
 
@@ -43,7 +46,10 @@ def delete_kpi(db: Session, kpi_id: int):
         db.commit()
     return db_kpi
 
-# --- CRUD REPORTES ---
+
+# ==========================================
+# --- CRUD REPORTES ------------------------
+# ==========================================
 def get_reportes(db: Session):
     # INTEGRACIÓN: Ordenamos por fecha descendente para que el front muestre lo más nuevo
     return db.query(models.Reporte).order_by(models.Reporte.fecha_generacion.desc()).all()
@@ -74,7 +80,10 @@ def delete_reporte(db: Session, reporte_id: int):
         db.commit()
     return db_reporte
 
-# --- CRUD MÉTRICAS PROYECTOS ---
+
+# ==========================================
+# --- CRUD MÉTRICAS PROYECTOS --------------
+# ==========================================
 def get_metricas(db: Session):
     return db.query(models.MetricaProyecto).all()
 
@@ -85,33 +94,56 @@ def get_metrica_por_proyecto(db: Session, id_proyecto: int):
     return db.query(models.MetricaProyecto).filter(models.MetricaProyecto.id_proyecto == id_proyecto).all()
 
 def create_metrica(db: Session, metrica: schemas.MetricaCreate):
-    db_metrica = models.MetricaProyecto(**metrica.model_dump())
+    # Adaptado para que asigne automáticamente la estampa de tiempo UTC al crearse
+    db_metrica = models.MetricaProyecto(
+        id_proyecto=metrica.id_proyecto,
+        porcentaje_avance=metrica.porcentaje_avance,
+        tareas_completadas=metrica.tareas_completadas,
+        tareas_totales=metrica.tareas_totales,
+        fecha_calculo=datetime.now(timezone.utc)
+    )
     db.add(db_metrica)
     db.commit()
     db.refresh(db_metrica)
     return db_metrica
 
-# --- LÓGICA DE SINCRONIZACIÓN (UPSERT PARA MÉTRICAS) ---
+
+# ==========================================
+# --- LÓGICA DE SINCRONIZACIÓN (UPSERT) ----
+# ==========================================
 def update_or_create_metrica(db: Session, metrica: schemas.MetricaCreate):
+    # 1. Buscamos si el proyecto ya tiene métricas registradas en la base de datos
     db_metrica = db.query(models.MetricaProyecto).filter(
         models.MetricaProyecto.id_proyecto == metrica.id_proyecto
     ).first()
-
+    
     if db_metrica:
+        # 2. Si ya existe, actualizamos sus valores reales con los datos nuevos
         db_metrica.porcentaje_avance = metrica.porcentaje_avance
         db_metrica.tareas_completadas = metrica.tareas_completadas
         db_metrica.tareas_totales = metrica.tareas_totales
-        db.commit()
-        db.refresh(db_metrica)
-        return db_metrica
-    
-    return create_metrica(db, metrica)
+        db_metrica.fecha_calculo = datetime.now(timezone.utc) # Actualizamos la estampa de tiempo
+    else:
+        # 3. Si es la primera vez que se sincroniza este proyecto, lo creamos desde cero
+        db_metrica = models.MetricaProyecto(
+            id_proyecto=metrica.id_proyecto,
+            porcentaje_avance=metrica.porcentaje_avance,
+            tareas_completadas=metrica.tareas_completadas,
+            tareas_totales=metrica.tareas_totales,
+            fecha_calculo=datetime.now(timezone.utc)
+        )
+        db.add(db_metrica)
+        
+    db.commit()
+    db.refresh(db_metrica)
+    return db_metrica
 
 def update_metrica(db: Session, metrica_id: int, metrica_data: schemas.MetricaCreate):
     db_metrica = get_metrica(db, metrica_id)
     if db_metrica:
         for key, value in metrica_data.model_dump().items():
             setattr(db_metrica, key, value)
+        db_metrica.fecha_calculo = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_metrica)
     return db_metrica

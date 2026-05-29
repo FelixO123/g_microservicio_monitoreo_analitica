@@ -2,7 +2,9 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
 
-# --- SCHEMAS PARA KPI ---
+# ==========================================
+# --- SCHEMAS PARA KPI ---------------------
+# ==========================================
 class KPIBase(BaseModel):
     nombre: str
     descripcion: Optional[str] = None
@@ -14,10 +16,14 @@ class KPICreate(KPIBase):
 class KPIResponse(KPIBase):
     id_kpi: int
     fecha_calculo: datetime
+    
     class Config:
         from_attributes = True
 
-# --- SCHEMAS PARA REPORTE ---
+
+# ==========================================
+# --- SCHEMAS PARA REPORTE -----------------
+# ==========================================
 class ReporteBase(BaseModel):
     resumen: str
     estado_general: str
@@ -28,28 +34,40 @@ class ReporteCreate(ReporteBase):
 class ReporteResponse(ReporteBase):
     id_reporte: int
     fecha_generacion: datetime
+    
     class Config:
         from_attributes = True
 
-# --- SCHEMAS PARA METRICA PROYECTO ---
+
+# ==========================================
+# --- SCHEMAS PARA METRICA PROYECTO --------
+# ==========================================
 class MetricaBase(BaseModel):
     id_proyecto: int
     porcentaje_avance: float
     tareas_completadas: int
     tareas_totales: int
 
-class MetricaCreate(MetricaBase):
-    pass
+# Integrado explícitamente según tus requerimientos para asegurar el tipado float
+class MetricaCreate(BaseModel):
+    id_proyecto: int
+    porcentaje_avance: float  
+    tareas_completadas: int
+    tareas_totales: int
 
 class MetricaResponse(MetricaBase):
     id_metrica: int
-    # Añadimos fecha_calculo si tu modelo lo tiene, para que el front no de error
+    # Mantenemos fecha_calculo opcional para evitar cualquier tipo de error en el mapeo con el Frontend
     fecha_calculo: Optional[datetime] = None 
+    
     class Config:
         from_attributes = True
 
-# --- SCHEMA PARA DASHBOARD ---
-# Este es el punto clave: Coincide con main.py y DashboardAnalitica.jsx
+
+# ==========================================
+# --- SCHEMA PARA DASHBOARD ----------------
+# ==========================================
+# Este objeto consolida la respuesta exacta que consume tu DashboardAnalitica.jsx
 class DashboardData(BaseModel):
     kpis: List[KPIResponse]
     metricas: List[MetricaResponse]
